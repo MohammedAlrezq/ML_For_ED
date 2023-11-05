@@ -1,0 +1,36 @@
+---
+title: "ML_Models"
+author: "Mohammed Alrezq"
+date: "2023-11-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+# Data from regression model 
+```{r}
+emrg_data <- read.csv("ED_ML.csv")
+
+# to delete x 
+emrg_data <- emrg_data |> 
+  select(-1)
+```
+
+
+```{r}
+str(emrg_data)
+summary(emrg_data)
+```
+
+```{r}
+emrg_data %>% 
+  filter(LOS < 0) %>%
+  summarize(count = n())
+```
+
