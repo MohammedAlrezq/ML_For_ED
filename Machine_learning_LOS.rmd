@@ -15,22 +15,63 @@ library(tidyverse)
 
 # Data from regression model 
 ```{r}
-emrg_data <- read.csv("ED_ML.csv")
+ED_data <- read.csv("ML_Data2.csv")
 
-# to delete x 
-emrg_data <- emrg_data |> 
+# to remove X
+ED_data <- ED_data |> 
   select(-1)
 ```
 
-
+# Data Precheck 
 ```{r}
-str(emrg_data)
-summary(emrg_data)
+summary(ED_data)
+
+# Remove weekends 
+ED_data <- ED_data %>%
+  filter(Arrival.Day != "Sun" & Arrival.Day != "Sat")
+
+# Eliminate direct admit 
+ED_data <- ED_data |> 
+  filter(ESILevel != "Direct Admit")
+
+# Note: the current data is as the regression  paper 
 ```
 
+# Chnage variable names 
 ```{r}
-emrg_data %>% 
-  filter(LOS < 0) %>%
-  summarize(count = n())
+ED_data <- ED_data |> 
+  rename(
+    LOS = LOSfselcted,
+    Month = Month, 
+    A.Day = Arrival.Day,
+    A.Hr = Arrival_Hr_Rd, 
+    A.shift = Arrival.Shift..1st..12.AM., 
+    W.FP = Waiting.for.1st.provider_Rd, # waiting for provider and it is correlated with LOS
+    ESI = ESILevel, 
+    sex = Gender,
+    Age.Group = Age.Group,
+    EDLevel = EDLevel, 
+    Pat_count = Pat_OrderCount_Total, # not clear what is this and it removed from regression 
+    D.type = DispoType, # discharge type 
+    T.arrive = TransportArrive, #arrival mode 
+    PP_MD = PatientsPerMD_Mean_Rd, #patient per md mean
+    PP_N = PatientsPerNURSE_Mean_Rd,
+    PP_R = PatientsPerPA_RESIDENT_Mean,
+    FirstWard = FirstWard, # onlyfirst ward and it removed from regression 
+    W.Change = Ward.Change                 # change from a ward to a ward 
+  )
+
 ```
+
+# 
+```{r}
+# Assuming your data frame is named df
+ED_data <- ED_data %>%
+  mutate(LOS_binary = if_else(LOS > 4, 1, 0))
+
+ED_data |> 
+  count(LOS_binary)
+```
+
+
 
