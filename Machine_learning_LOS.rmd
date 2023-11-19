@@ -11,6 +11,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+#install.packages("caret")
+library(caret)
+library(naniar)
+library(psych)
 ```
 
 # Data from regression model 
@@ -63,15 +67,115 @@ ED_data <- ED_data |>
 
 ```
 
-# 
+# Split the outcoem variabe: less than and greater than 4 hours 
 ```{r}
 # Assuming your data frame is named df
-ED_data <- ED_data %>%
+ED_data <- ED_data |> 
   mutate(LOS_binary = if_else(LOS > 4, 1, 0))
+# If LOS is greater than 4, it sets LOS_binary to 1 for that row.
+# If LOS is not greater than 4, it sets LOS_binary to 0 for that row.
 
 ED_data |> 
   count(LOS_binary)
+
+# check if missing any 
+#gg_miss_var(ED_data)
+#sum(is.na(ED_data))
+```
+
+# Adjust outcome variabele and IVs 
+```{r}
+levels(ED_data$LOS)
+prop.table(table(ED_data$LOS_binary)) # 0= less than 4 hrs = 0.54% vs. 1= 0.45% greater than 4 hrs
+#         0         1 
+# 0.5453582 0.4546418 
+
+# Change outcome from 0&1 to No & Yes
+ED_data$LOS_binary <- as.factor(ED_data$LOS_binary)
+levels(ED_data$LOS_binary) <- c("No", "Yes")
+# Check 
+levels(ED_data$LOS_binary)
+# Make less than 4 hrs the reference as "Yes"
+ED_data$LOS_binary <- relevel(ED_data$LOS_binary, ref = "Yes")
+levels(ED_data$LOS_binary)
+# Check 
+prop.table(table(ED_data$LOS_binary))
+
+
+# Outcome 
+str(ED_data)
+# Remove numeric LOS column 
+ED_data <- ED_data |> 
+  select(-1)
+# Set IVs type
+ED_data$Month <- as.factor(ED_data$Month)
+ED_data$A.Day <- as.factor(ED_data$A.Day)
+ED_data$A.Hr <- as.numeric(ED_data$A.Hr)
+ED_data$A.shift <- as.factor(ED_data$A.shift)
+ED_data$W.FP <- as.numeric(ED_data$W.FP)
+ED_data$ESI <- as.factor(ED_data$ESI)
+ED_data$sex <- as.factor(ED_data$sex)
+ED_data$Age.Group <- as.factor(ED_data$Age.Group)
+ED_data$EDLevel <- as.factor(ED_data$EDLevel)
+ED_data$Pat_count <- as.numeric(ED_data$Pat_count)
+ED_data$D.type <- as.factor(ED_data$D.type)
+ED_data$T.arrive <- as.factor(ED_data$T.arrive)
+ED_data$PP_MD <- as.numeric(ED_data$PP_MD)
+ED_data$PP_N <- as.numeric(ED_data$PP_N)
+ED_data$PP_R <- as.numeric(ED_data$PP_R)
+ED_data$FirstWard  <- as.factor(ED_data$FirstWard)
+ED_data$W.Change  <- as.factor(ED_data$W.Change)
+```
+
+# Set train and test data 
+```{r}
+# Partition data into training and test sets (Stratified sampling based on target variable)
+set.seed(1234)
+ind<- createDataPartition(ED_data$LOS_binary, p = 0.7, list = FALSE) 
+train<- ED_data[ind, ]
+test<- ED_data[-ind,] 
+
+# Check to see how creatDataPratition split the data equally
+prop.table(table(train$LOS_binary))
+prop.table(table(test$LOS_binary))
+
+# Change referned in train and test data 
+train$LOS_binary <- relevel(train$LOS_binary, ref = "Yes")
+levels(train$LOS_binary)
+prop.table(table(train$LOS_binary))
 ```
 
 
+# Define contrl 
+```{r}
+# Define control
+control <- trainControl(
+  method = "cv",
+  number = 10,
+  savePredictions = "final",
+  classProbs = T,
+  summaryFunction = twoClassSummary)
+
+```
+
+# Model 1: Logistic regression 
+```{r}
+# Logistic original 
+set.seed(1234)
+log_model <- train(LOS_binary~.,
+                   data = train,
+                   method = "glm",
+                   family = "binomial",
+                   metric = "ROC",
+                   trControl = control)
+
+# train outcome
+fittedlog_model_train<- predict(log_model, train)
+confusionMatrix(reference = train$LOS_binary, data = fittedlogOrig_train, mode = "everything")
+
+
+# Test outcome
+fittedlog_model_test <- pred_log <- predict(log_model, test)
+confusionMatrix(reference = test$LOS_binary, data = fittedlog_model_test, mode = "everything")
+```
 
