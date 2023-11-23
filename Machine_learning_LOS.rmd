@@ -2,7 +2,9 @@
 title: "ML_Models"
 author: "Mohammed Alrezq"
 date: "2023-11-05"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -15,6 +17,7 @@ library(tidyverse)
 library(caret)
 library(naniar)
 library(psych)
+library(pROC)
 ```
 
 # Data from regression model 
@@ -73,7 +76,7 @@ ED_data <- ED_data |>
 ED_data <- ED_data |> 
   mutate(LOS_binary = if_else(LOS > 4, 1, 0))
 # If LOS is greater than 4, it sets LOS_binary to 1 for that row.
-# If LOS is not greater than 4, it sets LOS_binary to 0 for that row.
+# If LOS is 4 or less, it sets LOS_binary to 0 for that row.
 
 ED_data |> 
   count(LOS_binary)
@@ -104,20 +107,22 @@ prop.table(table(ED_data$LOS_binary))
 
 # Outcome 
 str(ED_data)
+
+
 # Remove numeric LOS column 
 ED_data <- ED_data |> 
   select(-1)
 # Set IVs type
 ED_data$Month <- as.factor(ED_data$Month)
 ED_data$A.Day <- as.factor(ED_data$A.Day)
-ED_data$A.Hr <- as.numeric(ED_data$A.Hr)
+ED_data$A.Hr <- as.numeric(ED_data$A.Hr) # remvoe 
 ED_data$A.shift <- as.factor(ED_data$A.shift)
-ED_data$W.FP <- as.numeric(ED_data$W.FP)
+ED_data$W.FP <- as.numeric(ED_data$W.FP)# remvoe 
 ED_data$ESI <- as.factor(ED_data$ESI)
 ED_data$sex <- as.factor(ED_data$sex)
 ED_data$Age.Group <- as.factor(ED_data$Age.Group)
 ED_data$EDLevel <- as.factor(ED_data$EDLevel)
-ED_data$Pat_count <- as.numeric(ED_data$Pat_count)
+ED_data$Pat_count <- as.numeric(ED_data$Pat_count) # remvoe 
 ED_data$D.type <- as.factor(ED_data$D.type)
 ED_data$T.arrive <- as.factor(ED_data$T.arrive)
 ED_data$PP_MD <- as.numeric(ED_data$PP_MD)
@@ -125,6 +130,7 @@ ED_data$PP_N <- as.numeric(ED_data$PP_N)
 ED_data$PP_R <- as.numeric(ED_data$PP_R)
 ED_data$FirstWard  <- as.factor(ED_data$FirstWard)
 ED_data$W.Change  <- as.factor(ED_data$W.Change)
+#ED_data$LOS_binary <- as.factor(ED_data$LOS_binary)
 ```
 
 # Set train and test data 
@@ -140,9 +146,9 @@ prop.table(table(train$LOS_binary))
 prop.table(table(test$LOS_binary))
 
 # Change referned in train and test data 
-train$LOS_binary <- relevel(train$LOS_binary, ref = "Yes")
-levels(train$LOS_binary)
-prop.table(table(train$LOS_binary))
+# train$LOS_binary <- relevel(train$LOS_binary, ref = "Yes")
+# levels(train$LOS_binary)
+# prop.table(table(train$LOS_binary))
 ```
 
 
@@ -162,7 +168,7 @@ control <- trainControl(
 ```{r}
 # Logistic original 
 set.seed(1234)
-log_model <- train(LOS_binary~.,
+log_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count,
                    data = train,
                    method = "glm",
                    family = "binomial",
@@ -171,11 +177,76 @@ log_model <- train(LOS_binary~.,
 
 # train outcome
 fittedlog_model_train<- predict(log_model, train)
-confusionMatrix(reference = train$LOS_binary, data = fittedlogOrig_train, mode = "everything")
+confusionMatrix(reference = train$LOS_binary, data = fittedlog_model_train, mode = "everything")
 
 
 # Test outcome
 fittedlog_model_test <- pred_log <- predict(log_model, test)
 confusionMatrix(reference = test$LOS_binary, data = fittedlog_model_test, mode = "everything")
+
+# ROC 
+# Predict Probabilities on the Test Set
+fittedlog_model_test_probs <- predict(log_model, newdata = test, type = "prob")
+
+# Extract the probabilities for the positive class
+# Assuming your positive class is represented by the second column in the predicted probabilities
+positive_class_probs <- fittedlog_model_test_probs[, 2]
+
+# Calculate the ROC curve
+roc_curve <- roc(test$LOS_binary, positive_class_probs)
+
+# Plot the ROC Curve
+plot(roc_curve, main = "ROC Curve for Test Data")
+plot(roc_curve, 
+     main = "ROC Curve for Logistic Regression Model",
+     col = "blue", 
+     lwd = 2,  # line width
+     xlab = "False Positive Rate", 
+     ylab = "True Positive Rate",
+     xlim = c(0, 1), 
+     ylim = c(0, 1))
+
+# Adding a reference line
+abline(0, 1, col = "red", lty = 2) # red dashed diagonal line
+
+# Annotating the AUC (Area Under Curve)
+auc(roc_curve) -> auc_value
+legend("bottomright", 
+       legend = paste("AUC =", round(auc_value, 2)), 
+       col = "blue", 
+       lwd = 2)
+```
+
+# Model 2: Random forest
+```{r}
+# Create a grid for hyperparameters
+grid <- expand.grid(
+  mtry = c(2, 4, 6)             # number of variables randomly sampled as candidates at each split
+  # splitrule = c("gini", "extratrees"),
+  # min.node.size = c(1, 5, 10),    # minimum size of terminal nodes
+  # ntree = c(500, 1000, 1500)      # number of trees to grow
+)
+
+# Model 2: Random forest 
+set.seed(123400)
+rf_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count,
+                   data = train,
+                   method = "rf",
+                   family = "binomial",
+                   metric = "ROC",
+                   trControl = control,
+                  tuneGrid = grid)
+
+
+# train outcome
+fitted_rf_model_train <- predict(rf_model, train)
+confusionMatrix(reference = train$LOS_binary, data = fitted_rf_model_train, mode = "everything")
+
+
+# Test outcome
+fitted_rf_model_test <- predict(rf_model, test)
+confusionMatrix(reference = test$LOS_binary, data = fitted_rf_model_test, mode = "everything")
+
+
 ```
 
