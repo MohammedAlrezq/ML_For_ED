@@ -288,6 +288,43 @@ xgb.plot.importance(importance_matrix)
 
 plot(varImp(xgboost_model))
 
+shap.plot.summary.wrap1
+##############
+library(caret)
+library(xgboost)
+library(ggplot2)
+
+# Assuming 'xgboost_model' is already trained using the caret package...
+
+# Extract the actual xgboost model from caret object
+xgb_model <- xgboost_model$finalModel
+
+# Extract feature importance
+importance_matrix <- xgb.importance(model = xgb_model)
+
+# Convert it to a data frame for easier manipulation
+importance_df <- as.data.frame(importance_matrix)
+
+# Identify one-hot encoded features and their original variable names
+# This step assumes that the one-hot encoding creates names like 'variable.level'
+original_features <- gsub("\\.\\w+$", "", rownames(importance_df))
+
+# Aggregate the importances by original feature names
+importance_df$Feature <- original_features
+aggregated_importance <- aggregate(importance_df$Gain, by = list(importance_df$Feature), FUN = sum)
+colnames(aggregated_importance) <- c("Feature", "Importance")
+
+# Sort by importance
+aggregated_importance <- aggregated_importance[order(-aggregated_importance$Importance), ]
+
+# Plot the aggregated feature importance
+plot <- ggplot(aggregated_importance, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() + # Flip coordinates to make it horizontal
+  labs(x = "Feature", y = "Importance") +
+  theme_minimal()
+
+
 ```
 
 # Model 4: NN 
