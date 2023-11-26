@@ -260,6 +260,8 @@ legend("bottomright",
 
 # Model 3: Xgboost 
 ```{r}
+installed.packages("xgboost")
+library(xgboost)
 # Xgboost
 set.seed(123411)
 xgboost_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month -A.Day -FirstWard,
@@ -348,37 +350,5 @@ confusionMatrix(reference = train$LOS_binary, data = fitted_NN_model_train, mode
 # Test outcome
 fitted_NN_model_test <- pred_log <- predict(NN_model, test)
 confusionMatrix(reference = test$LOS_binary, data = fitted_NN_model_test, mode = "everything")
-```
-
-
-```{r}
-# # Cross validation to determine optimal lambda 
-# names(ED_data)
-# Y_Var <- ED_data[,18]
-# X_Var <- ED_data[,1:17]
-# mutliv_lasso_cv <- cv.glmnet(as.matrix(X_Var),
-#                              as.matrix(Y_Var),
-#                              family = "binomial",# mgaussian is used for multivariate outcomes 
-#                              nfolds = 10,
-#                              type.measure = "mse")
-# # optimla (min) lmbda 
-# mutliv_lasso_cv$lambda.min
-# mutliv_lasso_cv$lambda.1se
-# 
-# 
-# # plot 
-# #par(mfrow = c(1,3))
-# plot(mutliv_lasso_cv)# Finla
-# 
-# # Finla model with optimal lmbda 
-# mutliv_lasso_optimla <- glmnet( 
-#                        as.matrix(X_Var),
-#                        as.matrix(Y_Var),
-#                        alpha = 1, # lasso 
-#                        family = "binomial",
-#                        lambda = mutliv_lasso_cv$lambda.min)
-# 
-# coef(mutliv_lasso_optimla)
-# 
 ```
 
