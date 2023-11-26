@@ -18,6 +18,7 @@ library(caret)
 library(naniar)
 library(psych)
 library(pROC)
+library(glmnet)
 ```
 
 # Data from regression model 
@@ -166,9 +167,10 @@ control <- trainControl(
 
 # Model 1: Logistic regression 
 ```{r}
+names(ED_data)
 # Logistic original 
 set.seed(1234)
-log_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count,
+log_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month -A.Day -FirstWard,
                    data = train,
                    method = "glm",
                    family = "binomial",
@@ -219,34 +221,127 @@ legend("bottomright",
 
 # Model 2: Random forest
 ```{r}
-# Create a grid for hyperparameters
-grid <- expand.grid(
-  mtry = c(2, 4, 6)             # number of variables randomly sampled as candidates at each split
-  # splitrule = c("gini", "extratrees"),
-  # min.node.size = c(1, 5, 10),    # minimum size of terminal nodes
-  # ntree = c(500, 1000, 1500)      # number of trees to grow
-)
+# library(doParallel)
+# library(foreach)
+# registerDoParallel(cores = 4)
+# #stopImplicitCluster()
+# 
+# # Create a grid for hyperparameters
+# grid <- expand.grid(
+#   mtry = seq(from = 2, to = 100, by = 1)            # number of variables randomly sampled as candidates at each split
+#   # splitrule = c("gini", "extratrees"),
+#   # min.node.size = c(1, 5, 10),    # minimum size of terminal nodes
+#   # ntree = c(500, 1000, 1500)      # number of trees to grow
+# )
+# 
+# # Model 2: Random forest 
+# set.seed(123400)
+# rf_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month,
+#                    data = train,
+#                    method = "rf",
+#                    family = "binomial",
+#                    metric = "ROC",
+#                    trControl = control,
+#                   tuneGrid = grid)
+# 
+# 
+# # train outcome
+# fitted_rf_model_train <- predict(rf_model, train)
+# confusionMatrix(reference = train$LOS_binary, data = fitted_rf_model_train, mode = "everything")
+# 
+# 
+# # Test outcome
+# fitted_rf_model_test <- predict(rf_model, test)
+# confusionMatrix(reference = test$LOS_binary, data = fitted_rf_model_test, mode = "everything")
 
-# Model 2: Random forest 
-set.seed(123400)
-rf_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count,
+
+```
+
+
+# Model 3: Xgboost 
+```{r}
+# Xgboost
+set.seed(123411)
+xgboost_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month -A.Day -FirstWard,
                    data = train,
-                   method = "rf",
-                   family = "binomial",
+                   method = "xgbTree",
                    metric = "ROC",
-                   trControl = control,
-                  tuneGrid = grid)
-
+                   trControl = control)
 
 # train outcome
-fitted_rf_model_train <- predict(rf_model, train)
-confusionMatrix(reference = train$LOS_binary, data = fitted_rf_model_train, mode = "everything")
+fitted_xgboost_model_train<- predict(xgboost_model, train)
+confusionMatrix(reference = train$LOS_binary, data = fitted_xgboost_model_train, mode = "everything")
 
 
 # Test outcome
-fitted_rf_model_test <- predict(rf_model, test)
-confusionMatrix(reference = test$LOS_binary, data = fitted_rf_model_test, mode = "everything")
+fitted_xgboost_model_test <- pred_log <- predict(xgboost_model, test)
+confusionMatrix(reference = test$LOS_binary, data = fitted_xgboost_model_test, mode = "everything")
 
 
+library(xgboost)
+final_model <- xgboost_model$finalModel
+# Calculate feature importance
+importance_matrix <- xgb.importance(feature_names = final_model$feature_names, model = final_model)
+
+# Plot feature importance
+xgb.plot.importance(importance_matrix)
+
+plot(varImp(xgboost_model))
+
+```
+
+# Model 4: NN 
+```{r}
+tuneGrid <- expand.grid(size = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+                        decay = c(0, 0.001, 0.01, 0.1))
+set.seed(1110)
+NN_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month -A.Day -FirstWard,
+                   data = train,
+                   method = "nnet",
+                   metric = "ROC",
+                   trControl = control,
+                  preProcess = c("center", "scale"),
+                  tuneGrid = tuneGrid)
+
+# train outcome
+fitted_NN_model_train<- predict(NN_model, train)
+confusionMatrix(reference = train$LOS_binary, data = fitted_NN_model_train, mode = "everything")
+
+
+# Test outcome
+fitted_NN_model_test <- pred_log <- predict(NN_model, test)
+confusionMatrix(reference = test$LOS_binary, data = fitted_NN_model_test, mode = "everything")
+```
+
+
+```{r}
+# # Cross validation to determine optimal lambda 
+# names(ED_data)
+# Y_Var <- ED_data[,18]
+# X_Var <- ED_data[,1:17]
+# mutliv_lasso_cv <- cv.glmnet(as.matrix(X_Var),
+#                              as.matrix(Y_Var),
+#                              family = "binomial",# mgaussian is used for multivariate outcomes 
+#                              nfolds = 10,
+#                              type.measure = "mse")
+# # optimla (min) lmbda 
+# mutliv_lasso_cv$lambda.min
+# mutliv_lasso_cv$lambda.1se
+# 
+# 
+# # plot 
+# #par(mfrow = c(1,3))
+# plot(mutliv_lasso_cv)# Finla
+# 
+# # Finla model with optimal lmbda 
+# mutliv_lasso_optimla <- glmnet( 
+#                        as.matrix(X_Var),
+#                        as.matrix(Y_Var),
+#                        alpha = 1, # lasso 
+#                        family = "binomial",
+#                        lambda = mutliv_lasso_cv$lambda.min)
+# 
+# coef(mutliv_lasso_optimla)
+# 
 ```
 
