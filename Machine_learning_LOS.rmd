@@ -225,41 +225,41 @@ legend("bottomright",
 
 # Model 2: Random forest
 ```{r}
-library(doParallel)
-library(foreach)
-registerDoParallel(cores =detectCores(-1))
-#stopImplicitCluster()
-
-# Create a grid for hyperparameters
-grid <- expand.grid(
-  mtry = c(2, 5, 9 ,10, 12))            # number of variables randomly sampled as candidates at each split
-  # splitrule = c("gini", "extratrees"),
-  # min.node.size = c(1, 5, 10),    # minimum size of terminal nodes
-  # ntree = c(500, 1000, 1500)      # number of trees to grow
-
-
-# Model 2: Random forest
-library(tictoc)
-
-tic()
-set.seed(123400)
-rf_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month,
-                   data = train,
-                   method = "rf",
-                   family = "binomial",
-                   metric = "ROC",
-                   trControl = control,
-                  tuneGrid = grid)
-
-toc()
-# train outcome
-fitted_rf_model_train <- predict(rf_model, train)
-confusionMatrix(reference = train$LOS_binary, data = fitted_rf_model_train, mode = "everything")
-
-
-# Test outcome
-fitted_rf_model_test <- predict(rf_model, test)
-confusionMatrix(reference = test$LOS_binary, data = fitted_rf_model_test, mode = "everything")
+# library(doParallel)
+# library(foreach)
+# registerDoParallel(cores =detectCores(-1))
+# #stopImplicitCluster()
+# 
+# # Create a grid for hyperparameters
+# grid <- expand.grid(
+#   mtry = c(2, 5, 9 ,10, 12))            # number of variables randomly sampled as candidates at each split
+#   # splitrule = c("gini", "extratrees"),
+#   # min.node.size = c(1, 5, 10),    # minimum size of terminal nodes
+#   # ntree = c(500, 1000, 1500)      # number of trees to grow
+# 
+# 
+# # Model 2: Random forest
+# library(tictoc)
+# 
+# tic()
+# set.seed(123400)
+# rf_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month,
+#                    data = train,
+#                    method = "rf",
+#                    family = "binomial",
+#                    metric = "ROC",
+#                    trControl = control,
+#                   tuneGrid = grid)
+# 
+# toc()
+# # train outcome
+# fitted_rf_model_train <- predict(rf_model, train)
+# confusionMatrix(reference = train$LOS_binary, data = fitted_rf_model_train, mode = "everything")
+# 
+# 
+# # Test outcome
+# fitted_rf_model_test <- predict(rf_model, test)
+# confusionMatrix(reference = test$LOS_binary, data = fitted_rf_model_test, mode = "everything")
 
 
 ```
