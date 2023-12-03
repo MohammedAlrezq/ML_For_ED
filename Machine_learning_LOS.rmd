@@ -24,6 +24,29 @@ library(furrr)
 plan("multisession")
 ```
 
+```{r}
+# this code use only for visualization purposes
+plotTheme <- function() {
+  theme(
+    plot.title = element_text(size = 14, family = "sans", face = "plain", hjust = 0),
+    plot.subtitle=element_text(size = 11, family = "sans", hjust = 0),
+    plot.caption=element_text(size = 10, family = "sans", face = "italic", hjust = 0), 
+    axis.title.x = element_text(size = 10, family = "sans", face = "plain", hjust = 1, vjust = -0.5),
+    axis.title.y = element_text(size = 10, family = "sans", face = "plain", hjust = 1, vjust = 1),
+    axis.text = element_text(size = 9, family = "sans", face = "plain"),
+    panel.background = element_blank(),
+    panel.grid.minor = element_line(colour = "gray"),
+    panel.grid.major = element_line(colour = "gray"),
+    axis.ticks = element_blank(),
+    legend.title = element_text(size = 10, family = "sans"),
+    legend.text = element_text(size = 9, family = "sans"),
+    axis.line = element_blank()
+  )
+}
+
+```
+
+
 # Data from regression model 
 ```{r}
 ED_data <- read.csv("ML_Data2.csv")
@@ -71,6 +94,43 @@ ED_data <- ED_data |>
     FirstWard = FirstWard, # onlyfirst ward and it removed from regression 
     W.Change = Ward.Change                 # change from a ward to a ward 
   )
+
+```
+
+```{r}
+library(gridExtra)
+sum(table(ED_data$A.shift))
+names(ED_data)
+
+plot1<- ggplot(ED_data, aes(x = A.shift ))+
+  geom_bar()+
+  labs(x = "Patient Arrival per Shift", y= "Patients")+
+  plotTheme()
+
+
+plot2 <- ggplot(ED_data, aes(x = Age.Group))+
+  geom_bar() +
+  labs(x = "Patient Arrival per Shift", y= "Patients")+
+  plotTheme()
+
+plot3 <- ggplot(ED_data, aes(x = T.arrive))+
+  geom_bar() +
+  labs(x = "Patient Arrival per Shift", y= "Patients")+
+  plotTheme()
+
+
+plot4 <- ggplot(ED_data, aes(x = LOS_binary))+
+  geom_bar() +
+  labs(x = "Patient Arrival per Shift", y= "Patients")+
+  plotTheme()
+
+
+plot5 <- ggplot(ED_data, aes(x = EDLevel))+
+  geom_bar() +
+  labs(x = "Patient Arrival per Shift", y= "Patients")+
+  plotTheme()
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, nrow = 2)
 
 ```
 
@@ -190,6 +250,7 @@ confusionMatrix(reference = train$LOS_binary, data = fittedlog_model_train, mode
 fittedlog_model_test <- pred_log <- predict(log_model, test)
 confusionMatrix(reference = test$LOS_binary, data = fittedlog_model_test, mode = "everything")
 
+modelLookup(log_model)
 # ROC 
 # Predict Probabilities on the Test Set
 fittedlog_model_test_probs <- predict(log_model, newdata = test, type = "prob")
