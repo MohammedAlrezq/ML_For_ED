@@ -324,10 +324,10 @@ stopImplicitCluster()
 # min.node.size = c(1, 5, 10),    # minimum size of terminal nodes
 # ntree = c(500, 1000, 1500)      # number of trees to grow
 
-grid <- expand.grid(.mtry = 1:300)
+grid <- expand.grid(.mtry = 1:20)
 #Model 2: Random forest
 set.seed(123400)
-rf_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month,
+rf_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month -A.Day -FirstWard,
                     data = train,
                     method = "rf",
                     metric = "ROC",
@@ -336,15 +336,31 @@ rf_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month,
  
 
 
-# fitted_rf_model_train <- predict(rf_model, train)
-# confusionMatrix(reference = train$LOS_binary, data = fitted_rf_model_train, mode = "everything")
+fitted_rf_model_train <- predict(rf_model, train)
+confusionMatrix(reference = train$LOS_binary, data = fitted_rf_model_train, mode = "everything")
 # 
 # 
 # # Test outcome
-# fitted_rf_model_test <- predict(rf_model, test)
-# confusionMatrix(reference = test$LOS_binary, data = fitted_rf_model_test, mode = "everything")
+fitted_rf_model_test <- predict(rf_model, test)
+confusionMatrix(reference = test$LOS_binary, data = fitted_rf_model_test, mode = "everything")
 
+plot(rf_model)
 modelLookup("rf")
+
+# Save the model to a specified path with the .rds extension
+saveRDS(rf_model, "C:/Users/alrez/OneDrive - Virginia Tech/Courses_Semesters/Fall 2023/ML ECE/Project/Project_Coding/ML_For_ED/rf_model.rds")
+
+# Load the model from the .rds file
+#rf_model <- readRDS("C:/Users/alrez/OneDrive - Virginia Tech/Courses_Semesters/Fall 2023/ML ECE/Project/Project_Coding/ML_For_ED/rf_model.rds")
+
+# Assuming you have new data called new_data, you would run the model like this:
+# Make sure that new_data has the same structure (same variables) as the data used to train the model
+
+#predictions <- predict(rf_model, new_data)
+
+
+
+
 ```
 
 `r x = to 4` where 
