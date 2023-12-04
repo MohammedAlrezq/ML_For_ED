@@ -5,6 +5,8 @@ date: "2023-11-05"
 output:
   word_document: default
   html_document: default
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -176,6 +178,7 @@ str(ED_data)
 # Remove numeric LOS column 
 ED_data <- ED_data |> 
   select(-1)
+
 # Set IVs type
 ED_data$Month <- as.factor(ED_data$Month)
 ED_data$A.Day <- as.factor(ED_data$A.Day)
@@ -195,6 +198,30 @@ ED_data$PP_R <- as.numeric(ED_data$PP_R)
 ED_data$FirstWard  <- as.factor(ED_data$FirstWard)
 ED_data$W.Change  <- as.factor(ED_data$W.Change)
 #ED_data$LOS_binary <- as.factor(ED_data$LOS_binary)
+```
+
+# Descriptive stat 
+```{r}
+install.packages("crosstable") # this package provides summary stat for categorical and numeric 
+library(crosstable)
+
+# All observation 
+des_data <- crosstable(ED_data)
+des_data
+write.csv(des_data, "All_Obs.csv")
+
+
+#less than 4 hours (No = 0)
+Less_than_4 <- ED_data |> 
+  filter(LOS_binary == "No")
+Less_than_4_summary <- crosstable(Less_than_4)
+write.csv(Less_than_4_summary, "Less_than_4.csv")
+
+# greater than 4 hours (Yes = 1)
+Greater_than_4 <- ED_data |> 
+  filter(LOS_binary == "Yes")
+Greter_than_4_summary <- crosstable(Greater_than_4)
+write.csv(Greter_than_4_summary, "greater_than_4.csv")
 ```
 
 # Set train and test data 
@@ -231,7 +258,6 @@ control <- trainControl(
 
 # Model 1: Logistic regression 
 ```{r}
-names(ED_data)
 # Logistic original 
 set.seed(1234)
 log_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month -A.Day -FirstWard,
@@ -250,7 +276,7 @@ confusionMatrix(reference = train$LOS_binary, data = fittedlog_model_train, mode
 fittedlog_model_test <- pred_log <- predict(log_model, test)
 confusionMatrix(reference = test$LOS_binary, data = fittedlog_model_test, mode = "everything")
 
-modelLookup(log_model)
+log_model$bestTune
 # ROC 
 # Predict Probabilities on the Test Set
 fittedlog_model_test_probs <- predict(log_model, newdata = test, type = "prob")
@@ -286,34 +312,30 @@ legend("bottomright",
 
 # Model 2: Random forest
 ```{r}
-# library(doParallel)
-# library(foreach)
-# registerDoParallel(cores =detectCores(-1))
-# #stopImplicitCluster()
-# 
-# # Create a grid for hyperparameters
+library(doParallel)
+library(foreach)
+registerDoParallel(cores =detectCores(-1))
+stopImplicitCluster()
+
+#Create a grid for hyperparameters
 # grid <- expand.grid(
-#   mtry = c(2, 5, 9 ,10, 12))            # number of variables randomly sampled as candidates at each split
-#   # splitrule = c("gini", "extratrees"),
-#   # min.node.size = c(1, 5, 10),    # minimum size of terminal nodes
-#   # ntree = c(500, 1000, 1500)      # number of trees to grow
-# 
-# 
-# # Model 2: Random forest
-# library(tictoc)
-# 
-# tic()
-# set.seed(123400)
-# rf_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month,
-#                    data = train,
-#                    method = "rf",
-#                    family = "binomial",
-#                    metric = "ROC",
-#                    trControl = control,
-#                   tuneGrid = grid)
-# 
-# toc()
-# # train outcome
+# mtry = c(2, 5, 9 ,10, 12))            # number of variables randomly sampled as candidates at each split
+# splitrule = c("gini", "extratrees"),
+# min.node.size = c(1, 5, 10),    # minimum size of terminal nodes
+# ntree = c(500, 1000, 1500)      # number of trees to grow
+
+grid <- expand.grid(.mtry = 1:300)
+#Model 2: Random forest
+set.seed(123400)
+rf_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month,
+                    data = train,
+                    method = "rf",
+                    metric = "ROC",
+                    trControl = control,
+                   tuneGrid = grid)
+ 
+
+
 # fitted_rf_model_train <- predict(rf_model, train)
 # confusionMatrix(reference = train$LOS_binary, data = fitted_rf_model_train, mode = "everything")
 # 
@@ -322,21 +344,40 @@ legend("bottomright",
 # fitted_rf_model_test <- predict(rf_model, test)
 # confusionMatrix(reference = test$LOS_binary, data = fitted_rf_model_test, mode = "everything")
 
-
+modelLookup("rf")
 ```
 
+`r x = to 4` where 
 
 # Model 3: Xgboost 
 ```{r}
-installed.packages("xgboost")
+#installed.packages("xgboost")
 library(xgboost)
+
+# Define the search grid
+grid <- expand.grid(
+  nrounds = c(100, 150, 200),  # Including the best tune value and exploring around it
+  max_depth = c(2, 3, 4),      # One below and one above the best tune value
+  eta = c(0.1, 0.3, 0.5),      # Exploring lower and higher values
+  gamma = c(0, 0.1, 0.2),      # Exploring slightly higher values
+  colsample_bytree = c(0.6, 0.8, 1.0), # Exploring a range around the best tune value
+  min_child_weight = c(1, 2, 3), # Exploring a range around the best tune value
+  subsample = c(0.8, 1, 1.2)   # Exploring a range around the best tune value
+)
 # Xgboost
 set.seed(123411)
 xgboost_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month -A.Day -FirstWard,
                    data = train,
                    method = "xgbTree",
                    metric = "ROC",
-                   trControl = control)
+                   trControl = control,
+                   tuneGrid = grid)
+
+# Tune he model 
+modelLookup("xgbTree")# to chekc which parameters associated with the algorithm
+xgboost_model$bestTune # to check which parameters associated with the model 
+
+plot(xgboost_model$bestTune$nrounds)
 
 # train outcome
 fitted_xgboost_model_train<- predict(xgboost_model, train)
@@ -394,12 +435,11 @@ plot <- ggplot(aggregated_importance, aes(x = reorder(Feature, Importance), y = 
   labs(x = "Feature", y = "Importance") +
   theme_minimal()
 
-
 ```
 
 # Model 4: NN 
 ```{r}
-tuneGrid <- expand.grid(size = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
+tuneGrid_NN <- expand.grid(size = c(1, 2, 3, 4, 5, 6),
                         decay = c(0, 0.001, 0.01, 0.1))
 set.seed(1110)
 NN_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month -A.Day -FirstWard,
@@ -407,8 +447,14 @@ NN_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month -A.Day -FirstWard,
                    method = "nnet",
                    metric = "ROC",
                    trControl = control,
-                  preProcess = c("center", "scale"),
-                  tuneGrid = tuneGrid)
+                  #preProcess = c("center", "scale"),
+                  tuneGrid = tuneGrid_NN)
+
+NN_model$bestTune
+modelLookup("nnet")
+plot(NN_model)
+
+
 
 # train outcome
 fitted_NN_model_train<- predict(NN_model, train)
