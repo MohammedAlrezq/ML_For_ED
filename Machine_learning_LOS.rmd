@@ -308,6 +308,10 @@ legend("bottomright",
        legend = paste("AUC =", round(auc_value, 2)), 
        col = "blue", 
        lwd = 2)
+
+
+# save the model 
+saveRDS(log_model,"C:/Users/alrez/OneDrive - Virginia Tech/Courses_Semesters/Fall 2023/ML ECE/Project/Project_Coding/ML_For_ED/log_model.rds")
 ```
 
 # Model 2: Random forest
@@ -376,9 +380,9 @@ grid <- expand.grid(
   max_depth = c(2, 3, 4),      # One below and one above the best tune value
   eta = c(0.1, 0.3, 0.5),      # Exploring lower and higher values
   gamma = c(0, 0.1, 0.2),      # Exploring slightly higher values
-  colsample_bytree = c(0.6, 0.8, 1.0), # Exploring a range around the best tune value
+  colsample_bytree = c(0.6, 0.8, 1.0), # Exploring a range around the best tune value 
   min_child_weight = c(1, 2, 3), # Exploring a range around the best tune value
-  subsample = c(0.8, 1, 1.2)   # Exploring a range around the best tune value
+  subsample = c(0.6, 0.8, 1)   # Exploring a range around the best tune value
 )
 # Xgboost
 set.seed(123411)
@@ -387,9 +391,10 @@ xgboost_model <- train(LOS_binary~.-A.Hr -W.FP -Pat_count -Month -A.Day -FirstWa
                    method = "xgbTree",
                    metric = "ROC",
                    trControl = control,
-                   tuneGrid = grid)
+                   tuneGrid = grid
+                   )
 
-# Tune he model 
+# Tune the model 
 modelLookup("xgbTree")# to chekc which parameters associated with the algorithm
 xgboost_model$bestTune # to check which parameters associated with the model 
 
